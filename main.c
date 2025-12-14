@@ -1,146 +1,186 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
-#include <locale.h>
-#include <stdbool.h>
 
-#define ITEM_MAX 30
+#define MAX_NOME 30
+#define MAX_ITENS 100
+
+void mostrarMenu() {
+    printf("==================================\n");
+    printf("   Controle de Estoque\n");
+    printf("==================================\n");
+    printf("1. Adicionar Item\n");
+    printf("2. Remover Item\n");
+    printf("3. Listar Estoque\n");
+    printf("4. Sair\n");
+    printf("Opção: ");
+}
 
 void limparBuffer() {
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
 }
 
-int lerNumero() {
-    int num;
-    while (scanf("%d", &num) != 1) {
-        printf("Entrada inválida. Digite um número válido: ");
+int menuOpcao() {
+    int op;
+    while (scanf("%d", &op) != 1 || op < 1 || op > 4) {
         limparBuffer();
+        printf("Opção inválida! Tente novamente.\n");
+        printf("Opção: ");
     }
     limparBuffer();
-    return num;
+    return op;
 }
 
-int contarItens() {
-    FILE *ponteiro = fopen("estoque.txt", "r");
-    if (ponteiro == NULL) return 0;
+int carregarEstoque(char nomes[][MAX_NOME], int quantidades[]) {
+    FILE *f = fopen("estoque.txt", "r");
+    if (f == NULL) return 0;
 
     int count = 0;
-    char linha[40];
-
-    while (fscanf(ponteiro, "%s", linha) == 1) {
+    while (fgets(nomes[count], MAX_NOME, f)) {
+        nomes[count][strcspn(nomes[count], "\n")] = '\0';
+        fscanf(f, "%d\n", &quantidades[count]);
         count++;
     }
 
-    fclose(ponteiro);
-    return count / 2;
+    fclose(f);
+    return count;
 }
 
-void load_file(char **nomes, int *quantidades, int quant) {
-    FILE *ponteiro = fopen("estoque.txt", "r");
-    if (ponteiro == NULL) return;
-
-    for (int i = 0; i < quant; i++) {
-        fscanf(ponteiro, "%s", nomes[i]);
-        fscanf(ponteiro, "%d", &quantidades[i]);
+void salvarEstoque(char nomes[][MAX_NOME], int quantidades[], int total) {
+    FILE *f = fopen("estoque.txt", "w");
+    for (int i = 0; i < total; i++) {
+        fprintf(f, "%s\n", nomes[i]);
+        fprintf(f, "%d\n", quantidades[i]);
     }
-
-    fclose(ponteiro);
+    fclose(f);
 }
 
-void salvarFile(char **nomes, int *quantidades, int quant) {
-    FILE *ponteiro = fopen("estoque.txt", "w");
+void adicionarItem() {
+    char nome[MAX_NOME];
+    int qtd;
 
-    for (int i = 0; i < quant; i++) {
-        fprintf(ponteiro, "%s\n", nomes[i]);
-        fprintf(ponteiro, "%d\n", quantidades[i]);
-    }
+    printf("Digite o nome do item: ");
+    fgets(nome, MAX_NOME, stdin);
+    nome[strcspn(nome, "\n")] = '\0';
 
-    fclose(ponteiro);
+    printf("Digite a quantidade: ");
+    scanf("%d", &qtd);
+    limparBuffer();
+
+    FILE *f = fopen("estoque.txt", "a");
+    fprintf(f, "%s\n%d\n", nome, qtd);
+    fclose(f);
+
+    printf("Item adicionado com sucesso!\n");
 }
 
-void listarItem(char **nomes, int quant) {
-    printf("--------------------------------------------------\n");
-    for (int i = 0; i < quant; i++) {
-        printf("%d - %s\n", i + 1, nomes[i]);
-    }
-    printf("--------------------------------------------------\n");
-}
+void removerItem() {
+    char nomes[MAX_ITENS][MAX_NOME];
+    int quantidades[MAX_ITENS];
+    int total = carregarEstoque(nomes, quantidades);
 
-void mostrarTabela(char **nomes, int *quantidades, int quant) {
-    printf("--------------------------------------------------\n");
-    printf("%-30s%-20s\n", "Nome", "Quantidade");
-    for (int i = 0; i < quant; i++) {
-        printf("%-30s%-20d\n", nomes[i], quantidades[i]);
-    }
-    printf("--------------------------------------------------\n");
-}
+    char nome[MAX_NOME];
+    int qtd;
+    int encontrado = -1;
 
-void adicionarItem(char **nomes, int *quantidades, int quant) {
-    int escolha, qtd;
+    printf("Digite o nome do item: ");
+    fgets(nome, MAX_NOME, stdin);
+    nome[strcspn(nome, "\n")] = '\0';
 
-    listarItem(nomes, quant);
-    printf("Escolha o item: ");
-    escolha = lerNumero();
+    printf("Digite a quantidade a ser removida: ");
+    scanf("%d", &qtd);
+    limparBuffer();
 
-    if (escolha < 1 || escolha > quant) return;
-
-    printf("Quantidade a adicionar: ");
-    qtd = lerNumero();
-
-    quantidades[escolha - 1] += qtd;
-    salvarFile(nomes, quantidades, quant);
-}
-
-void removerItem(char **nomes, int *quantidades, int quant) {
-    int escolha, qtd;
-
-    listarItem(nomes, quant);
-    printf("Escolha o item: ");
-    escolha = lerNumero();
-
-    if (escolha < 1 || escolha > quant) return;
-
-    printf("Quantidade a remover: ");
-    qtd = lerNumero();
-
-    quantidades[escolha - 1] -= qtd;
-    salvarFile(nomes, quantidades, quant);
-}
-
-int main() {
-    setlocale(LC_ALL, "");
-
-    int quant = contarItens();
-    if (quant == 0) {
-        printf("Arquivo vazio ou inexistente.\n");
-        return 1;
-    }
-
-    char **nomes = malloc(quant * sizeof(char *));
-    for (int i = 0; i < quant; i++) {
-        nomes[i] = malloc(ITEM_MAX * sizeof(char));
-    }
-
-    int *quantidades = malloc(quant * sizeof(int));
-
-    load_file(nomes, quantidades, quant);
-
-    int opcao;
-    bool continuar = true;
-
-    while (continuar) {
-        printf("\n1. Listar\n2. Adicionar\n3. Remover\n4. Sair\nOpção: ");
-        opcao = lerNumero();
-
-        switch (opcao) {
-        case 1: mostrarTabela(nomes, quantidades, quant); break;
-        case 2: adicionarItem(nomes, quantidades, quant); break;
-        case 3: removerItem(nomes, quantidades, quant); break;
-        case 4: continuar = false; break;
+    for (int i = 0; i < total; i++) {
+        if (strcmp(nomes[i], nome) == 0) {
+            encontrado = i;
+            break;
         }
     }
 
-    printf("Obrigado por usar o sistema!\n");
+    if (encontrado == -1) {
+        printf("Item não encontrado.\n");
+        return;
+    }
+
+    if (quantidades[encontrado] < qtd) {
+        printf("Estoque insuficiente. Quantidade disponível: %d\n",
+               quantidades[encontrado]);
+        return;
+    }
+
+    quantidades[encontrado] -= qtd;
+
+    if (quantidades[encontrado] == 0) {
+        for (int i = encontrado; i < total - 1; i++) {
+            strcpy(nomes[i], nomes[i + 1]);
+            quantidades[i] = quantidades[i + 1];
+        }
+        total--;
+        salvarEstoque(nomes, quantidades, total);
+        printf("Item removido do estoque!\n");
+    } else {
+        salvarEstoque(nomes, quantidades, total);
+        printf("Quantidade atualizada com sucesso!\n");
+    }
+}
+
+void listarEstoque() {
+    FILE *f = fopen("estoque.txt", "r");
+    if (f == NULL) {
+        printf("O estoque está vazio.\n");
+        return;
+    }
+
+    char nome[MAX_NOME];
+    int qtd;
+    int vazio = 1;
+
+    printf("=============================\n");
+    printf("        Estoque Atual\n");
+    printf("=============================\n");
+
+    while (fgets(nome, MAX_NOME, f)) {
+        nome[strcspn(nome, "\n")] = '\0';
+        fscanf(f, "%d\n", &qtd);
+        printf("Nome: %s\n", nome);
+        printf("Quantidade: %d\n\n", qtd);
+        vazio = 0;
+    }
+
+    fclose(f);
+
+    if (vazio) {
+        printf("O estoque está vazio.\n");
+    }
+}
+
+int main() {
+    int opcao;
+    char continuar;
+
+    do {
+        mostrarMenu();
+        opcao = menuOpcao();
+
+        switch (opcao) {
+        case 1: adicionarItem(); break;
+        case 2: removerItem(); break;
+        case 3: listarEstoque(); break;
+        case 4:
+            printf("Obrigado por usar o Controle de Estoques! Até a próxima.\n");
+            return 0;
+        }
+
+        printf("Deseja realizar outra operação? (s/n): ");
+        scanf(" %c", &continuar);
+        limparBuffer();
+        continuar = tolower(continuar);
+
+    } while (continuar == 's');
+
+    printf("Obrigado por usar o Controle de Estoques! Até a próxima.\n");
     return 0;
 }
